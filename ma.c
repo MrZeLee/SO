@@ -10,6 +10,9 @@
 
 #define FIX_SIZE 10
 #define MAX 1024
+#define USER_FAIL 2
+#define SYS_FAIL 3
+#define CLOSE 4
 
 // function to read last n lines from the file
 // at any point without reading the entire file
@@ -24,8 +27,10 @@ int tail(int in, int pipe)
     int r = -1;
 
     // Go to End of file
-    if ((empty = lseek(in, 0, SEEK_END)) < 0)
-        perror("lseek() failed");
+    if ((empty = lseek(in, 0, SEEK_END)) < 0) {
+      write(2,"lseek() failed\n",15);
+      r = SYS_FAIL;
+    }
     else
     {
       if (empty) {
@@ -51,7 +56,8 @@ int tail(int in, int pipe)
               }
             }
             else {
-              perror("lseek() failed");
+              write(2,"lseek() failed\n",15);
+              r = SYS_FAIL;
             }
         }
         read(in,code,FIX_SIZE);
@@ -84,8 +90,13 @@ int readItem(char *buffer, Item *new) {
   buffer += i * sizeof(char);
 
   name = strtok(buffer, rem);
-  if(name == NULL) return -1;
-  if((buffer = strtok(NULL, "")) == NULL) return -1;
+  if(name == NULL) {
+    return USER_FAIL;
+  }
+  buffer = strtok(NULL, "");
+  if(buffer == NULL) {
+    return USER_FAIL;
+  }
 
 
   char *price;
@@ -95,10 +106,13 @@ int readItem(char *buffer, Item *new) {
   price = strtok(buffer, rem);
   buffer = strtok(NULL, "");
   if (buffer != NULL) {
-    return -1;
+    return USER_FAIL;
   }
 
-  new->name = malloc(sizeof(char) * (strlen(name) + 1));
+  if((new->name = malloc(sizeof(char) * (strlen(name) + 1))) == NULL) {
+    write(2,"malloc() failure\n",17);
+    return SYS_FAIL;
+  }
   strcpy(new->name, name);
   new->price = (double) atof(price);
 
@@ -109,17 +123,28 @@ int readItem(char *buffer, Item *new) {
 //usar o fork quando estiver a escrever nos dois ficheiros
 int insert(char *buffer) {
   Item new;
-  if(readItem(buffer, &new) < 0) return -1;
+  int ret;
+  if(ret = readItem(buffer, &new)) return ret;
 
   int fp = open("artigos", O_RDONLY | O_CREAT);
-  if(fp < 0) return -1;
+  if(fp < 0) {
+    write(2,"open(\"artigos\") failure\n",24);
+    return SYS_FAIL;
+  }
   int previous = tail(fp,1);
   close(fp);
+  if(previous == -2) return SYS_FAIL;
 
   fp = open("artigos", O_WRONLY | O_APPEND);
-  if(fp < 0) return -1;
+  if(fp < 0) {
+    write(2,"open(\"artigos\") failure\n",24);
+    return SYS_FAIL;
+  }
   int fp1 =  open("strings", O_WRONLY | O_APPEND | O_CREAT);
-  if(fp1 < 0) return -1;
+  if(fp1 < 0) {
+    write(2,"open(\"strings\") failure\n",24);
+    return SYS_FAIL;
+  }
 
   previous += 1;
 
@@ -157,33 +182,41 @@ int insert(char *buffer) {
 }
 
 int getCode (char *buffer) {
-  if(buffer[0] != ' ') return -1;
+  if(buffer[0] != ' ') return -USER_FAIL;
   size_t i = 1;
   char rem[] = " ";
   char *code = malloc(sizeof(char) * (FIX_SIZE + 1));
+  if (!code) write(2,"malloc() failed\n",16);
   while(buffer[i] == ' ') i++;
   buffer += i * sizeof(char);
 
   code = strtok(buffer, rem);
-  if(strlen(code) > 10) return -1;
+  if(strlen(code) > 10) {
+    free(code);
+    return -USER_FAIL;
+  }
   i = 0;
   while(isdigit(code[i])) i++;
-  if(code[i] != '\0' || i == 0) return -1;
-  printf("%s\n", code);
-  return 0;
+  if(code[i] != '\0' || i == 0) {
+    free(code);
+    return -USER_FAIL;
+  }
+  return atoi(code);
 }
 
 int newName (char *buffer) {
-  getCode(buffer);
-  /*int max;
+  int code = getCode(buffer);
+  if(code == -USER_FAIL) return USER_FAIL;
+  int max;
   int fp = open("artigos", O_RDONLY | O_CREAT);
+  if(fp < 0) {
+    write(2,"open(\"artigos\") failure\n",24);
+    return SYS_FAIL;
+  }
   max = tail(fp,1);
   int temp = open(".strings_tmp",O_WRONLY | O_CREAT);
-  */
   return 0;
 }
-
-
 
 
 
@@ -194,9 +227,10 @@ int main(int argc, char const *argv[]) {
   int stat;
   int check = 0;
 
-  while(check != 2) {
-    if(check) write(1,"Write valide option.\n",21);
-    check = 1;
+  while(check != CLOSE) {
+    if(check == USER_FAIL) write(1,"Write valide option.\n",21);
+    if(check == SYS_FAIL) return 1;
+    check = USER_FAIL;
     i = 0;
     buffer[0] = '\0';
 
@@ -207,24 +241,27 @@ int main(int argc, char const *argv[]) {
     }
     buffer[i] = '\0';
 
-    if(!fork()) {
-      switch (buffer[0]) {
-        case 'i': if (!insert(buffer + sizeof(char))) check = 0;
-                  break;
-        case 'n': if (!newName(buffer + sizeof(char))) check = 0;
-                  break;
-        case 'p': break;
-        default:
-                  if(c == -1) {
-                    write(1,"\n",1);
-                    check = 2;
-                  }
+    if(i != 1) {
+      if(!fork()) {
+        switch (buffer[0]) {
+          case 'i': check = insert(buffer + sizeof(char));
+                    break;
+          case 'n': check = newName(buffer + sizeof(char));
+                    break;
+          case 'p': break;
+          default:
+                    if(c == -1) {
+                      write(1,"\n",1);
+                      check = CLOSE;
+                    }
+        }
+        exit(check);
+      } else {
+        wait(&stat);
+        if (WIFEXITED(stat))
+            check = WEXITSTATUS(stat);
       }
-      exit(check);
     }
-    wait(&stat);
-    if (WIFEXITED(stat))
-        check = WEXITSTATUS(stat);
   }
 
   return 0;
