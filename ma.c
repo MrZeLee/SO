@@ -205,9 +205,9 @@ int getCode (char *buffer) {
 }
 
 int newName (char *buffer) {
-  int code = getCode(buffer);
-  char test[] = "olaola";
-  if(code == -USER_FAIL) return USER_FAIL;
+  int ss = strlen(buffer);
+  char *test = malloc(sizeof(char) * (ss + 1));
+  strcpy(test,buffer);
   int max;
   int fp = open("artigos", O_RDONLY | O_CREAT);
   if(fp < 0) {
@@ -215,11 +215,23 @@ int newName (char *buffer) {
     return SYS_FAIL;
   }
   max = tail(fp,1);
+  int code = getCode(buffer);
+
+  if(code == -USER_FAIL) return USER_FAIL;
+
   if (code > max) {
     write(2,"Invalid Code\n",13);
     return USER_FAIL;
   }
   close(fp);
+  int i = 0;
+  while(test[i] == ' ') i++;
+  while(test[i] != ' ') i++;
+  while(test[i] == ' ') i++;
+  test += sizeof(char) * i;
+  i = 0;
+  while(test[i] != ' ' && test[i] != '\0') i++;
+  test[i] = '\0';
 
   int temp = open(".strings_tmp",O_WRONLY | O_CREAT);
   if(temp < 0) {
