@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall
 
-ma:
+ma: ma.c ma.h
 	$(CC) $(CFLAGS) ma.c -o ma
 
 clean:

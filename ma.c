@@ -124,7 +124,7 @@ int readItem(char *buffer, Item *new) {
 int insert(char *buffer) {
   Item new;
   int ret;
-  if(ret = readItem(buffer, &new)) return ret;
+  if((ret = readItem(buffer, &new))) return ret;
 
   int fp = open("artigos", O_RDONLY | O_CREAT);
   if(fp < 0) {
@@ -206,6 +206,7 @@ int getCode (char *buffer) {
 
 int newName (char *buffer) {
   int code = getCode(buffer);
+  char test[] = "olaola";
   if(code == -USER_FAIL) return USER_FAIL;
   int max;
   int fp = open("artigos", O_RDONLY | O_CREAT);
@@ -214,7 +215,62 @@ int newName (char *buffer) {
     return SYS_FAIL;
   }
   max = tail(fp,1);
+  if (code > max) {
+    write(2,"Invalid Code\n",13);
+    return USER_FAIL;
+  }
+  close(fp);
+
   int temp = open(".strings_tmp",O_WRONLY | O_CREAT);
+  if(temp < 0) {
+    write(2,"open(\".strings_tmp\") failure\n",29);
+    return SYS_FAIL;
+  }
+  fp = open("strings", O_RDONLY | O_CREAT);
+  if(fp < 0) {
+    close(temp);
+    write(2,"open(\"strings\") failure\n",24);
+    return SYS_FAIL;
+  }
+  int count = 0;
+  char c;
+
+  while(read(fp,&c,1) > 0) {
+    if(count == code) {
+      while(read(fp,&c,1) > 0 && c != '\n');
+      count++;
+      write(temp,test,strlen(test));
+      write(temp,"\n",1);
+    }
+    else {
+      if(c == '\n') count++;
+      write(temp,&c,1);
+    }
+  }
+  close(temp);
+  close(fp);
+  int p[2];
+  pipe(p);
+  if(!fork()) {
+    close(p[0]);
+    dup2(p[1],1);
+    close(p[1]);
+    execlp("mv","mv",".strings_tmp","strings",NULL);
+    exit(1);
+  }
+  else {
+    close(p[1]);
+    wait(NULL);
+    count = 0;
+    while(read(p[0],&c,1) > 0) {
+      count++;
+    }
+    close(p[0]);
+  }
+  if(count) {
+    write(2,"execlp(mv) failure\n",19);
+    return SYS_FAIL;
+  }
   return 0;
 }
 
