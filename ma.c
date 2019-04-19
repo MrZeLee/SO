@@ -80,6 +80,19 @@ int numDigits(int n){
     return count;
 }
 
+int isFloat(char *price) {
+  int i = 0;
+  char p;
+  int point = -2;
+  while((p = price[i++]) != '\0' && point < 0 ) {
+    if(isdigit(p) || p == '.') {
+      if(p == '.') point++;
+    } else point = 0;
+  }
+  if(!point) return USER_FAIL;
+  return 0;
+}
+
 int readItem(char *buffer, Item *new) {
   if (buffer[0] != ' ') return -1;
   char rem[] = " ";
@@ -108,6 +121,9 @@ int readItem(char *buffer, Item *new) {
   if (buffer != NULL) {
     return USER_FAIL;
   }
+
+  if((i = isFloat(price))) return i;
+
 
   if((new->name = malloc(sizeof(char) * (strlen(name) + 1))) == NULL) {
     write(2,"malloc() failure\n",17);
@@ -204,6 +220,60 @@ int getCode (char *buffer) {
   return atoi(code);
 }
 
+int wrFileLine (char *file, char *test, int code) {
+  int temp = open(".tmp",O_WRONLY | O_CREAT);
+  if(temp < 0) {
+    write(2,"open(\".tmp\") failure\n",21);
+    return SYS_FAIL;
+  }
+  int fp = open(file, O_RDONLY | O_CREAT);
+  if(fp < 0) {
+    close(temp);
+    write(2,"open() failure\n",24);
+    return SYS_FAIL;
+  }
+  int count = 0;
+  char c;
+
+  while(read(fp,&c,1) > 0) {
+    if(count == code) {
+      while(read(fp,&c,1) > 0 && c != '\n');
+      count++;
+      write(temp,test,strlen(test));
+      write(temp,"\n",1);
+    }
+    else {
+      if(c == '\n') count++;
+      write(temp,&c,1);
+    }
+  }
+  close(temp);
+  close(fp);
+  int p[2];
+  pipe(p);
+  if(!fork()) {
+    close(p[0]);
+    dup2(p[1],1);
+    close(p[1]);
+    execlp("mv","mv",".tmp",file,NULL);
+    exit(1);
+  }
+  else {
+    close(p[1]);
+    wait(NULL);
+    count = 0;
+    while(read(p[0],&c,1) > 0) {
+      count++;
+    }
+    close(p[0]);
+  }
+  if(count) {
+    write(2,"execlp(mv) failure\n",19);
+    return SYS_FAIL;
+  }
+  return 0;
+}
+
 int newName (char *buffer) {
   int ss = strlen(buffer);
   char *test = malloc(sizeof(char) * (ss + 1));
@@ -230,63 +300,19 @@ int newName (char *buffer) {
   while(test[i] == ' ') i++;
   test += sizeof(char) * i;
   i = 0;
+
   while(test[i] != ' ' && test[i] != '\0') i++;
+  int j = i;
+  while(test[j] == ' ') j++;
+  if(test[j] != '\0') return USER_FAIL;
   test[i] = '\0';
 
-  int temp = open(".strings_tmp",O_WRONLY | O_CREAT);
-  if(temp < 0) {
-    write(2,"open(\".strings_tmp\") failure\n",29);
-    return SYS_FAIL;
-  }
-  fp = open("strings", O_RDONLY | O_CREAT);
-  if(fp < 0) {
-    close(temp);
-    write(2,"open(\"strings\") failure\n",24);
-    return SYS_FAIL;
-  }
-  int count = 0;
-  char c;
-
-  while(read(fp,&c,1) > 0) {
-    if(count == code) {
-      while(read(fp,&c,1) > 0 && c != '\n');
-      count++;
-      write(temp,test,strlen(test));
-      write(temp,"\n",1);
-    }
-    else {
-      if(c == '\n') count++;
-      write(temp,&c,1);
-    }
-  }
-  close(temp);
-  close(fp);
-  int p[2];
-  pipe(p);
-  if(!fork()) {
-    close(p[0]);
-    dup2(p[1],1);
-    close(p[1]);
-    execlp("mv","mv",".strings_tmp","strings",NULL);
-    exit(1);
-  }
-  else {
-    close(p[1]);
-    wait(NULL);
-    count = 0;
-    while(read(p[0],&c,1) > 0) {
-      count++;
-    }
-    close(p[0]);
-  }
-  if(count) {
-    write(2,"execlp(mv) failure\n",19);
-    return SYS_FAIL;
-  }
-  return 0;
+  return wrFileLine("strings",test,code);
 }
 
-
+int newPrice (char *buffer) {
+  return 0;
+}
 
 int main(int argc, char const *argv[]) {
   char c = 0;
