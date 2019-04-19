@@ -167,12 +167,12 @@ int insert(char *buffer) {
   if(fork()) {
     char *code = int2code(previous);
     write(fp,code,FIX_SIZE);
-    free(code);
     write(fp,":",1);
 
     //write into user
     write(1,"code: ",6);
     write(1,code,10);
+    free(code);
     write(1,"\n",1);
 
     sprintf(code,"%lf", new.price);
