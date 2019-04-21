@@ -327,6 +327,7 @@ int newPrice (char *buffer) {
   i = wrFileLine("artigos",code,cod);
 
   cRetArg(args);
+  free(code);
   return i;
 }
 
@@ -337,43 +338,45 @@ int main(int argc, char const *argv[]) {
   int stat;
   int check = 0;
 
-  while(check != CLOSE) {
-    if(check == USER_FAIL) write(1,"Write valide option.\n",21);
-    if(check == SYS_FAIL) return 1;
-    check = USER_FAIL;
-    i = 0;
-    buffer[0] = '\0';
+
+
 
     write(1,"> ",2);
     c = -1;
-    while ((read(1,&c,1) > 0) && c != '\n') {
-      buffer[i++] = c;
-    }
-    buffer[i] = '\0';
+    i = 0;
+    buffer[0] = '\0';
+    while ((read(1,&c,1) > 0)) {
+      if(c == '\n') {
+        check = USER_FAIL;
+        buffer[i] = '\0';
 
-    if(i != 1) {
-      if(!fork()) {
-        switch (buffer[0]) {
-          case 'i': check = insert(buffer + sizeof(char));
-                    break;
-          case 'n': check = newName(buffer + sizeof(char));
-                    break;
-          case 'p': check = newPrice(buffer + sizeof(char));
-                    break;
-          default:
-                    if(c == -1) {
-                      write(1,"\n",1);
-                      check = CLOSE;
-                    }
+        if(i != 1) {
+          if(!fork()) {
+            switch (buffer[0]) {
+              case 'i': check = insert(buffer + sizeof(char));
+                        break;
+              case 'n': check = newName(buffer + sizeof(char));
+                        break;
+              case 'p': check = newPrice(buffer + sizeof(char));
+                        break;
+              default: break;
+            }
+            exit(check);
+          } else {
+            wait(&stat);
+            if (WIFEXITED(stat))
+                check = WEXITSTATUS(stat);
+          }
         }
-        exit(check);
-      } else {
-        wait(&stat);
-        if (WIFEXITED(stat))
-            check = WEXITSTATUS(stat);
+        if(check == USER_FAIL) write(1,"Write valide option.\n",21);
+        if(check == SYS_FAIL) return 1;
+        write(1,"> ",2);
+        i = 0;
       }
+      else buffer[i++] = c;
     }
-  }
+
+    write(1,"\n",1);
 
   return 0;
 }
