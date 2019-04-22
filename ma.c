@@ -140,7 +140,7 @@ void cRetArg (char **args) {
 }
 
 //usar o fork quando estiver a escrever nos dois ficheiros
-int insert(char *buffer) {
+int insert(char *buffer, int *previous) {
   Item new;
   int j;
   char **args = retArg(buffer);
@@ -148,24 +148,21 @@ int insert(char *buffer) {
   if((j = isFloat(args[1]))) return j;
   new.price = atof(args[1]);
 
-  int previous = maxCode();
-  if(previous == -2) return SYS_FAIL;
-
   int fp = open("artigos", O_WRONLY | O_APPEND);
   if(fp < 0) {
     write(2,"open(\"artigos\") failure\n",24);
     return SYS_FAIL;
   }
-  int fp1 =  open("strings", O_WRONLY | O_APPEND | O_CREAT);
+  int fp1 = open("strings", O_WRONLY | O_APPEND | O_CREAT);
   if(fp1 < 0) {
     write(2,"open(\"strings\") failure\n",24);
     return SYS_FAIL;
   }
 
-  previous += 1;
+  *previous = *previous + 1;
 
   if(fork()) {
-    char *code = int2code(previous);
+    char *code = int2code(*previous);
     write(fp,code,FIX_SIZE);
     write(fp,":",1);
 
@@ -178,17 +175,15 @@ int insert(char *buffer) {
     sprintf(code,"%lf", new.price);
     write(fp,code,strlen(code));
     write(fp,"\n",1);
-    close(fp);
     wait(NULL);
   } else {
     write(fp1,new.name,strlen(new.name));
     write(fp1,"\n",1);
-    close(fp1);write(fp1,new.name,strlen(new.name));
-    write(fp1,"\n",1);
-    close(fp1);
     exit(1);
   }
   cRetArg(args);
+  close(fp);
+  close(fp1);
 
   return 0;
 }
@@ -270,12 +265,77 @@ int wrFileLine (char *file, char *test, int code) {
   return 0;
 }
 
-int newName (char *buffer) {
+int newNames () {
+  char file[] = ".save";
+
+  int fp = open("strings", O_RDONLY);
+  int temp = open(".tmp", O_WRONLY | O_CREAT);
+  int fp2 = open(file, O_RDONLY);
+  if(fp2 < 0) return 1;
+
+  int check = 1,check1 = 1, i, count = 0;
+  char c, buffer[MAX];
+  int code = -1;
+  char **args;
+
+  while(check || check1) {
+
+    if(check) {
+      i = 0;
+      while((check = read(fp2,&c,1)) > 0 && c != '\n') {
+        buffer[i++] = c;
+      }
+      buffer[i] = '\0';
+
+      if(check) {
+        args = retArg(buffer);
+        code = atoi(args[0]);
+      } else code = -1;
+    }
+
+    while((check1 = read(fp,&c,1)) > 0) {
+      if(count == code) {
+        while((check1 = read(fp,&c,1)) > 0 && c != '\n');
+        count++;
+        write(temp,args[1],strlen(args[1]));
+        write(temp,"\n",1);
+        break;
+      }
+      else {
+        if(c == '\n') count++;
+        write(temp,&c,1);
+      }
+    }
+    cRetArg(args);
+  }
+
+  close(fp);
+  close(temp);
+  close(fp2);
+  int done;
+
+  int p[2];
+  pipe(p);
+
+  if(!fork()) {
+    done = execlp("mv","mv",".tmp","strings",NULL);
+    exit(done);
+  }
+  else {
+    wait(&done);
+    if (WIFEXITED(done)) done = WEXITSTATUS(done);
+    if(done) {
+      write(2,"execlp(mv) failure\n",19);
+      return SYS_FAIL;
+    }
+  }
+  return 0;
+}
+
+int newName (char *buffer, int max) {
   char **args = retArg(buffer);
   if(args[0] == NULL || args[1] == NULL || args[2] != NULL) return USER_FAIL;
 
-  int max = maxCode();
-  if(max == -2) return SYS_FAIL;
   int i = 0;
   char t;
   while((t = args[0][i]) != '\0') {
@@ -295,88 +355,169 @@ int newName (char *buffer) {
   return i;
 }
 
-int newPrice (char *buffer) {
-  char **args = retArg(buffer);
-  if(args[0] == NULL || args[1] == NULL || args[2] != NULL) return USER_FAIL;
-
-  int max = maxCode();
-  if(max == -2) return SYS_FAIL;
-
+char *str2Code (char* arg, int* max) {
   int i = 0;
   char t;
-  while((t = args[0][i]) != '\0') {
-    if (!isdigit(t)) return USER_FAIL;
+  while((t = arg[i]) != '\0') {
+    if (!isdigit(t)) return NULL;
     i++;
   }
 
-  int cod = atoi(args[0]);
-  if (cod > max) {
+  int cod = atoi(arg);
+  if (cod > *max) {
     write(2,"Code not found\n",15);
-    return USER_FAIL;
+    return NULL;
   }
-
+  *max = cod;
   char *code = int2code(cod);
-  args[0] = realloc(args[0],(sizeof(char) * (FIX_SIZE + strlen(args[1]) + 1)));
+
+  return code;
+}
+
+int newPrice (char *buffer, int max) {
+  char **args = retArg(buffer);
+  if(args[0] == NULL || args[1] == NULL || args[2] != NULL) return USER_FAIL;
+  char *code = str2Code(args[0], &max);
+  if (!code) return USER_FAIL;
+
+  code = realloc(code,(sizeof(char) * (FIX_SIZE + strlen(args[1]) + 1)));
   code[10] = ':';
 
+  int i;
   if((i = isFloat(args[1]))) return i;
   float price = atof(args[1]);
 
   sprintf((code + 11),"%lf", price);
 
-  i = wrFileLine("artigos",code,cod);
+  i = wrFileLine("artigos",code,max);
 
   cRetArg(args);
   free(code);
   return i;
 }
 
+int saveName (char *buffer, int max) {
+  char **args = retArg(buffer);
+  if(args[0] == NULL || args[1] == NULL || args[2] != NULL) return USER_FAIL;
+
+  int fp = open(".save", O_WRONLY | O_APPEND | O_CREAT);
+
+  char *code = str2Code(args[0], &max);
+  if (!code) return USER_FAIL;
+
+  code = realloc(code,(sizeof(char) * (FIX_SIZE + strlen(args[1]) + 1)));
+
+  strcat(code," ");
+  strcat(code,args[1]);
+
+  write(fp,code,strlen(code));
+  write(fp,"\n",1);
+
+  cRetArg(args);
+  close(fp);
+  free(code);
+  return 0;
+}
+
 int main(int argc, char const *argv[]) {
+  int max = maxCode();
+  if(max == -2) return SYS_FAIL;
   char c = 0;
   char buffer[MAX];
   size_t i;
-  int stat;
   int check = 0;
 
+  write(1,"> ",2);
+  c = -1;
+  i = 0;
+  buffer[0] = '\0';
+  while ((read(0,&c,1) > 0)) {
+    if(c == '\n') {
+      check = USER_FAIL;
+      buffer[i] = '\0';
 
-
-
-    write(1,"> ",2);
-    c = -1;
-    i = 0;
-    buffer[0] = '\0';
-    while ((read(1,&c,1) > 0)) {
-      if(c == '\n') {
-        check = USER_FAIL;
-        buffer[i] = '\0';
-
-        if(i != 1) {
-          if(!fork()) {
-            switch (buffer[0]) {
-              case 'i': check = insert(buffer + sizeof(char));
-                        break;
-              case 'n': check = newName(buffer + sizeof(char));
-                        break;
-              case 'p': check = newPrice(buffer + sizeof(char));
-                        break;
-              default: break;
-            }
-            exit(check);
-          } else {
-            wait(&stat);
-            if (WIFEXITED(stat))
-                check = WEXITSTATUS(stat);
+      if(i != 1) {
+          switch (buffer[0]) {
+            case 'i': check = insert((buffer + sizeof(char)),&max);
+                      break;
+//            case 'n': check = newName(buffer + sizeof(char),max);
+            case 'n': check = saveName(buffer + sizeof(char),max);
+                      break;
+            case 'p': check = newPrice(buffer + sizeof(char),max);
+                      break;
+            default: break;
           }
         }
-        if(check == USER_FAIL) write(1,"Write valide option.\n",21);
-        if(check == SYS_FAIL) return 1;
-        write(1,"> ",2);
-        i = 0;
-      }
-      else buffer[i++] = c;
+      if(check == USER_FAIL) write(1,"Write valide option.\n",21);
+      if(check == SYS_FAIL) return 1;
+      write(1,"> ",2);
+      i = 0;
     }
+    else buffer[i++] = c;
+  }
+  write(1,"\n",1);
 
-    write(1,"\n",1);
+  int fp, done;
+  if((fp = open(".save", O_WRONLY)) > -1) {
+    close(fp);
+    int p[2];
+    pipe(p);
+
+    if(!fork()) {
+      close(p[0]);
+      dup2(p[1],1);
+      close(p[1]);
+      execlp("sort","sort","-n",".save",NULL);
+      _exit(1);
+    } else {
+      if(!fork()) {
+        fp = open(".save_tmp", O_WRONLY | O_CREAT);
+        close(p[1]);
+        dup2(p[0],0);
+        close(p[0]);
+        while(read(0,&c,1) > 0) {
+          write(fp,&c,1);
+        }
+        close(fp);
+        _exit(1);
+      } else{
+        int son;
+        if(!(son = fork())) {
+          close(p[0]);
+          close(p[1]);
+          done = execlp("mv","mv",".save_tmp",".save",NULL);
+          exit(done);
+        } else{
+          close(p[0]);
+          close(p[1]);
+          waitpid(son,&done,0);
+          while(wait(NULL) > 0);
+
+          if (WIFEXITED(done)) done = WEXITSTATUS(done);
+          if(done) {
+            write(2,"execlp(mv) failure\n",19);
+            return SYS_FAIL;
+          }
+        }
+      }
+
+
+    }
+    newNames();
+    if(!fork()) {
+      done = execlp("rm","rm",".save",NULL);
+      exit(done);
+    } else{
+      wait(&done);
+      if (WIFEXITED(done)) done = WEXITSTATUS(done);
+      if(done) {
+        write(2,"execlp(mv) failure\n",19);
+        return SYS_FAIL;
+      }
+    }
+  }
+
+
 
   return 0;
 }
