@@ -16,11 +16,12 @@
 #define CLOSE 4
 
 int numDigits(int n){
+    if (!n) return 1;
+
     int count = 0;
 
     while(n != 0)
     {
-        // n = n/10
         n /= 10;
         ++count;
     }
@@ -29,7 +30,7 @@ int numDigits(int n){
 
 char* int2code(int previous) {
   int digits = numDigits(previous);
-  char *code = malloc(sizeof(char) * (FIX_SIZE + 1));
+  char *code = malloc(FIX_SIZE + 1);
   int zeros = FIX_SIZE - digits;
   for (size_t i = 0; i < zeros; i++) {
     code[i] = '0';
@@ -47,11 +48,11 @@ int spacecount (char string[]){
 	return count;
 }
 
-// function to read last n lines from the file
+// function to read last line from the file
 // at any point without reading the entire file
 int maxCode()
 {
-    int in = open("artigos", O_RDONLY | O_CREAT);
+    int in = open("artigos", O_RDONLY | O_CREAT, 00700);
     if(in < 0) {
       write(2,"open(\"artigos\") failure\n",24);
       return SYS_FAIL;
@@ -102,9 +103,11 @@ int maxCode()
         code[FIX_SIZE] = '\0';
         r = atoi(code);
       }
-        return r;
     }
+    close(in);
+    return r;
 }
+
 
 int isFloat(char *price) {
   int i = 0;
@@ -121,10 +124,11 @@ int isFloat(char *price) {
 
 char** retArg (char *buffer) {
   int i = 0;
+  int space = spacecount(buffer);
   char *temp = strtok(buffer," ");
-  char **arg = malloc(sizeof(int) * (spacecount(buffer)+2));
+  char **arg = malloc(sizeof(int) * space);
   while (temp){
-					arg[i] = malloc(sizeof(strlen(temp) + 1));
+					arg[i] = malloc(strlen(temp) + 1);
           strcpy(arg[i++],temp);
 					temp = strtok(NULL," ");
 			}
@@ -133,14 +137,16 @@ char** retArg (char *buffer) {
 }
 
 void cRetArg (char **args) {
-  for (size_t i = 0; args[i]; i++) {
-    free(args[i]);
+  if (args != NULL) {
+    for (size_t i = 0; args[i] != NULL; i++) {
+      free(args[i]);
+    }
+    free(args);
   }
-  free(args);
 }
 
 //usar o fork quando estiver a escrever nos dois ficheiros
-int insert(char *buffer, int *previous) {
+int insert(char *buffer, int *previous, int fp, int fp1) {
   Item new;
   int j;
   char **args = retArg(buffer);
@@ -148,42 +154,49 @@ int insert(char *buffer, int *previous) {
   if((j = isFloat(args[1]))) return j;
   new.price = atof(args[1]);
 
-  int fp = open("artigos", O_WRONLY | O_APPEND);
-  if(fp < 0) {
-    write(2,"open(\"artigos\") failure\n",24);
-    return SYS_FAIL;
-  }
-  int fp1 = open("strings", O_WRONLY | O_APPEND | O_CREAT);
-  if(fp1 < 0) {
-    write(2,"open(\"strings\") failure\n",24);
-    return SYS_FAIL;
-  }
+
 
   *previous = *previous + 1;
+  int length;
 
-  if(fork()) {
+  while(wait(NULL) > 0);
+
+  if(!fork()) {
     char *code = int2code(*previous);
-    write(fp,code,FIX_SIZE);
-    write(fp,":",1);
+    char *price = malloc(100);
+    sprintf(price,"%lf", new.price);
+
 
     //write into user
-    write(1,"code: ",6);
-    write(1,code,10);
-    free(code);
-    write(1,"\n",1);
+    length = 6 + FIX_SIZE + 2;
+    char *output = malloc(length);
+    strcpy(output,"code: ");
+    strcat(output,code);
+    strcat(output,"\n");
+    write(1,output,length-1);
+    free(output);
 
-    sprintf(code,"%lf", new.price);
-    write(fp,code,strlen(code));
-    write(fp,"\n",1);
-    wait(NULL);
-  } else {
-    write(fp1,new.name,strlen(new.name));
-    write(fp1,"\n",1);
+    length = FIX_SIZE + 1 + strlen(price) + 2;
+    char *total = malloc(length);
+    strcpy(total,code);
+    strcat(total," ");
+    strcat(total,price);
+    free(price);
+    strcat(total,"\n");
+
+    write(fp,total,length-1);
+    free(code);
+
+    length = strlen(new.name) + 2;
+    char *name = malloc(length);
+    strcpy(name,new.name);
+    strcat(name,"\n");
+
+    write(fp1,name,length-1);
+    free(name);
     exit(1);
   }
   cRetArg(args);
-  close(fp);
-  close(fp1);
 
   return 0;
 }
@@ -192,10 +205,10 @@ int getCode (char *buffer) {
   if(buffer[0] != ' ') return -USER_FAIL;
   size_t i = 1;
   char rem[] = " ";
-  char *code = malloc(sizeof(char) * (FIX_SIZE + 1));
+  char *code = malloc(FIX_SIZE + 1);
   if (!code) write(2,"malloc() failed\n",16);
   while(buffer[i] == ' ') i++;
-  buffer += i * sizeof(char);
+  buffer += i;
 
   code = strtok(buffer, rem);
   if(strlen(code) > 10) {
@@ -208,16 +221,18 @@ int getCode (char *buffer) {
     free(code);
     return -USER_FAIL;
   }
-  return atoi(code);
+  int ret = atoi(code);
+  free(code);
+  return ret;
 }
 
 int wrFileLine (char *file, char *test, int code) {
-  int temp = open(".tmp",O_WRONLY | O_CREAT);
+  int temp = open(".tmp",O_WRONLY | O_CREAT, 00700);
   if(temp < 0) {
     write(2,"open(\".tmp\") failure\n",21);
     return SYS_FAIL;
   }
-  int fp = open(file, O_RDONLY | O_CREAT);
+  int fp = open(file, O_RDONLY | O_CREAT, 00700);
   if(fp < 0) {
     close(temp);
     write(2,"open() failure\n",24);
@@ -265,18 +280,18 @@ int wrFileLine (char *file, char *test, int code) {
   return 0;
 }
 
-int newNames () {
-  char file[] = ".save";
+int refreshFile (char* file, char* temp_file, int addCode, char* tmp) {
 
-  int fp = open("strings", O_RDONLY);
-  int temp = open(".tmp", O_WRONLY | O_CREAT);
-  int fp2 = open(file, O_RDONLY);
+  int fp = open(file, O_RDONLY);
+  int temp = open(tmp, O_WRONLY | O_CREAT, 00700);
+  int fp2 = open(temp_file, O_RDONLY);
   if(fp2 < 0) return 1;
+
 
   int check = 1,check1 = 1, i, count = 0;
   char c, buffer[MAX];
   int code = -1;
-  char **args;
+  char **args = NULL;
 
   while(check || check1) {
 
@@ -297,7 +312,13 @@ int newNames () {
       if(count == code) {
         while((check1 = read(fp,&c,1)) > 0 && c != '\n');
         count++;
-        write(temp,args[1],strlen(args[1]));
+        if(addCode) {
+          write(temp,args[0],strlen(args[0]));
+          write(temp," ",1);
+          write(temp,args[1],strlen(args[1]));
+        } else {
+          write(temp,args[1],strlen(args[1]));
+        }
         write(temp,"\n",1);
         break;
       }
@@ -306,7 +327,9 @@ int newNames () {
         write(temp,&c,1);
       }
     }
-    cRetArg(args);
+    if(check) {
+      cRetArg(args);
+    }
   }
 
   close(fp);
@@ -314,11 +337,8 @@ int newNames () {
   close(fp2);
   int done;
 
-  int p[2];
-  pipe(p);
-
   if(!fork()) {
-    done = execlp("mv","mv",".tmp","strings",NULL);
+    done = execlp("mv","mv",tmp,file,NULL);
     exit(done);
   }
   else {
@@ -380,7 +400,7 @@ int newPrice (char *buffer, int max) {
   char *code = str2Code(args[0], &max);
   if (!code) return USER_FAIL;
 
-  code = realloc(code,(sizeof(char) * (FIX_SIZE + strlen(args[1]) + 1)));
+  code = realloc(code, FIX_SIZE + strlen(args[1]) + 1);
   code[10] = ':';
 
   int i;
@@ -396,69 +416,44 @@ int newPrice (char *buffer, int max) {
   return i;
 }
 
-int saveName (char *buffer, int max) {
+int saveName (char *buffer, int max, char *file_temp, int addCode) {
   char **args = retArg(buffer);
-  if(args[0] == NULL || args[1] == NULL || args[2] != NULL) return USER_FAIL;
+  if(args[0] == NULL || args[1] == NULL || args[2] != NULL) {
+    cRetArg(args);
+    return USER_FAIL;
+  }
 
-  int fp = open(".save", O_WRONLY | O_APPEND | O_CREAT);
+  int fp = open(file_temp, O_WRONLY | O_APPEND | O_CREAT, 00700);
 
   char *code = str2Code(args[0], &max);
   if (!code) return USER_FAIL;
 
-  code = realloc(code,(sizeof(char) * (FIX_SIZE + strlen(args[1]) + 1)));
+  if(addCode) {
+    int j;
+    if((j = isFloat(args[1]))) return j;
+    float price = atof(args[1]);
+    char strPrice[MAX];
+    sprintf(strPrice,"%lf",price);
+    args[1] = realloc(args[1], strlen(strPrice) + 1);
+    strcpy(args[1],strPrice);
+  }
 
+  code = realloc(code,FIX_SIZE + strlen(args[1]) + 1);
   strcat(code," ");
-  strcat(code,args[1]);
 
   write(fp,code,strlen(code));
+  write(fp,args[1],strlen(args[1]));
   write(fp,"\n",1);
-
   cRetArg(args);
   close(fp);
   free(code);
   return 0;
 }
 
-int main(int argc, char const *argv[]) {
-  int max = maxCode();
-  if(max == -2) return SYS_FAIL;
-  char c = 0;
-  char buffer[MAX];
-  size_t i;
-  int check = 0;
-
-  write(1,"> ",2);
-  c = -1;
-  i = 0;
-  buffer[0] = '\0';
-  while ((read(0,&c,1) > 0)) {
-    if(c == '\n') {
-      check = USER_FAIL;
-      buffer[i] = '\0';
-
-      if(i != 1) {
-          switch (buffer[0]) {
-            case 'i': check = insert((buffer + sizeof(char)),&max);
-                      break;
-//            case 'n': check = newName(buffer + sizeof(char),max);
-            case 'n': check = saveName(buffer + sizeof(char),max);
-                      break;
-            case 'p': check = newPrice(buffer + sizeof(char),max);
-                      break;
-            default: break;
-          }
-        }
-      if(check == USER_FAIL) write(1,"Write valide option.\n",21);
-      if(check == SYS_FAIL) return 1;
-      write(1,"> ",2);
-      i = 0;
-    }
-    else buffer[i++] = c;
-  }
-  write(1,"\n",1);
-
+int finishFiles(char *file, char *file_temp, char *temp, int addCode, char *tmp) {
+  char c;
   int fp, done;
-  if((fp = open(".save", O_WRONLY)) > -1) {
+  if((fp = open(file_temp, O_WRONLY)) > -1) {
     close(fp);
     int p[2];
     pipe(p);
@@ -467,11 +462,11 @@ int main(int argc, char const *argv[]) {
       close(p[0]);
       dup2(p[1],1);
       close(p[1]);
-      execlp("sort","sort","-n",".save",NULL);
+      execlp("sort","sort","-n",file_temp,NULL);
       _exit(1);
     } else {
       if(!fork()) {
-        fp = open(".save_tmp", O_WRONLY | O_CREAT);
+        fp = open(temp, O_WRONLY | O_CREAT, 00700);
         close(p[1]);
         dup2(p[0],0);
         close(p[0]);
@@ -485,7 +480,7 @@ int main(int argc, char const *argv[]) {
         if(!(son = fork())) {
           close(p[0]);
           close(p[1]);
-          done = execlp("mv","mv",".save_tmp",".save",NULL);
+          done = execlp("mv","mv",temp,file_temp,NULL);
           exit(done);
         } else{
           close(p[0]);
@@ -500,12 +495,10 @@ int main(int argc, char const *argv[]) {
           }
         }
       }
-
-
     }
-    newNames();
+    refreshFile(file,file_temp,addCode,tmp);
     if(!fork()) {
-      done = execlp("rm","rm",".save",NULL);
+      done = execlp("rm","rm",file_temp,NULL);
       exit(done);
     } else{
       wait(&done);
@@ -516,8 +509,70 @@ int main(int argc, char const *argv[]) {
       }
     }
   }
+  return 0;
+}
 
+int main(int argc, char const *argv[]) {
+  int max = maxCode();
+  if(max == -2) return SYS_FAIL;
 
+  int fp = open("artigos", O_WRONLY | O_APPEND);
+  if(fp < 0) {
+    write(2,"open(\"artigos\") failure\n",25);
+    return SYS_FAIL;
+  }
+  int fp1 = open("strings", O_WRONLY | O_APPEND | O_CREAT, 00700);
+  if(fp1 < 0) {
+    write(2,"open(\"strings\") failure\n",24);
+    return SYS_FAIL;
+  }
+
+  char c = 0;
+  char buffer[MAX];
+  size_t i;
+  int check = 0;
+
+  c = -1;
+  i = 0;
+  buffer[0] = '\0';
+  while ((read(0,&c,1) > 0)) {
+    if(c == '\n') {
+      check = USER_FAIL;
+      buffer[i] = '\0';
+
+      if(i != 1) {
+          switch (buffer[0]) {
+            case 'i': check = insert(buffer + 1,&max,fp,fp1);
+                      break;
+//            case 'n': check = newName(buffer + sizeof(char),max);
+            case 'n': check = saveName(buffer + 1,max,".saveName",0);
+                      break;
+//            case 'p': check = newPrice(buffer + sizeof(char),max);
+            case 'p': check = saveName(buffer + 1,max,".savePrice",1);
+                      break;
+            default: break;
+          }
+        }
+      if(check == USER_FAIL) write(1,"Write valide option.\n",21);
+      if(check == SYS_FAIL) return 1;
+      i = 0;
+    }
+    else buffer[i++] = c;
+  }
+
+  close(fp);
+  close(fp1);
+
+  if(!fork()) {
+    finishFiles("strings",".saveName",".saveName_tmp",0,".tmp");
+    exit(1);
+  } else{
+    if(!fork()) {
+      finishFiles("artigos",".savePrice",".savePrice_tmp",1,".tmp1");
+    } else {
+      while(wait(NULL) > 0);
+    }
+  }
 
   return 0;
 }
