@@ -1,13 +1,9 @@
 CC = gcc
 CFLAGS = -Wall -O2
 
-ma: ma.c ma.h
+install: ma.c ma.h sv.c cv.c
 	$(CC) $(CFLAGS) ma.c -o ma
-
-sv: sv.c
 	$(CC) $(CFLAGS) sv.c -o sv
-
-cv: cv.c
 	$(CC) $(CFLAGS) cv.c -o cv
 
 clean:
