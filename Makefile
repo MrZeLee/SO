@@ -7,4 +7,4 @@ install: ma.c ma.h sv.c cv.c
 	$(CC) $(CFLAGS) cv.c -o cv
 
 clean:
-	rm ma artigos strings
+	rm ma sv cv artigos strings
