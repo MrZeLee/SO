@@ -147,13 +147,10 @@ void cRetArg (char **args) {
 
 //usar o fork quando estiver a escrever nos dois ficheiros
 int insert(char *buffer, int *previous, int fp, int fp1) {
-  Item new;
   int j;
   char **args = retArg(buffer);
-  new.name = args[0];
   if((j = isFloat(args[1]))) return j;
-  new.price = atof(args[1]);
-
+  float iPrice = atof(args[1]);
 
 
   *previous = *previous + 1;
@@ -163,37 +160,34 @@ int insert(char *buffer, int *previous, int fp, int fp1) {
 
   if(!fork()) {
     char *code = int2code(*previous);
-    char *price = malloc(100);
-    sprintf(price,"%lf", new.price);
+    char price[100];
+    sprintf(price,"%lf", iPrice);
 
 
     //write into user
     length = 6 + FIX_SIZE + 2;
-    char *output = malloc(length);
+    char output[length];
     strcpy(output,"code: ");
     strcat(output,code);
     strcat(output,"\n");
     write(1,output,length-1);
-    free(output);
 
     length = FIX_SIZE + 1 + strlen(price) + 2;
-    char *total = malloc(length);
+    char total[length];
     strcpy(total,code);
     strcat(total," ");
     strcat(total,price);
-    free(price);
     strcat(total,"\n");
 
     write(fp,total,length-1);
     free(code);
 
-    length = strlen(new.name) + 2;
-    char *name = malloc(length);
-    strcpy(name,new.name);
+    length = strlen(args[0]) + 2;
+    char name[length];
+    strcpy(name,args[0]);
     strcat(name,"\n");
 
     write(fp1,name,length-1);
-    free(name);
     exit(1);
   }
   cRetArg(args);
@@ -201,7 +195,7 @@ int insert(char *buffer, int *previous, int fp, int fp1) {
   return 0;
 }
 
-int getCode (char *buffer) {
+/*int getCode (char *buffer) {
   if(buffer[0] != ' ') return -USER_FAIL;
   size_t i = 1;
   char rem[] = " ";
@@ -224,9 +218,9 @@ int getCode (char *buffer) {
   int ret = atoi(code);
   free(code);
   return ret;
-}
+}*/
 
-int wrFileLine (char *file, char *test, int code) {
+/*int wrFileLine (char *file, char *test, int code) {
   int temp = open(".tmp",O_WRONLY | O_CREAT, 00700);
   if(temp < 0) {
     write(2,"open(\".tmp\") failure\n",21);
@@ -278,7 +272,7 @@ int wrFileLine (char *file, char *test, int code) {
     return SYS_FAIL;
   }
   return 0;
-}
+}*/
 
 int refreshFile (char* file, char* temp_file, int addCode, char* tmp) {
 
@@ -352,7 +346,7 @@ int refreshFile (char* file, char* temp_file, int addCode, char* tmp) {
   return 0;
 }
 
-int newName (char *buffer, int max) {
+/*int newName (char *buffer, int max) {
   char **args = retArg(buffer);
   if(args[0] == NULL || args[1] == NULL || args[2] != NULL) return USER_FAIL;
 
@@ -373,7 +367,7 @@ int newName (char *buffer, int max) {
 
   cRetArg(args);
   return i;
-}
+}*/
 
 char *str2Code (char* arg, int* max) {
   int i = 0;
@@ -394,7 +388,7 @@ char *str2Code (char* arg, int* max) {
   return code;
 }
 
-int newPrice (char *buffer, int max) {
+/*int newPrice (char *buffer, int max) {
   char **args = retArg(buffer);
   if(args[0] == NULL || args[1] == NULL || args[2] != NULL) return USER_FAIL;
   char *code = str2Code(args[0], &max);
@@ -414,7 +408,7 @@ int newPrice (char *buffer, int max) {
   cRetArg(args);
   free(code);
   return i;
-}
+}*/
 
 int saveName (char *buffer, int max, char *file_temp, int addCode) {
   char **args = retArg(buffer);

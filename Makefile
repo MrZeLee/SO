@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall
+CFLAGS = -Wall -O2
 
 ma: ma.c ma.h
 	$(CC) $(CFLAGS) ma.c -o ma
