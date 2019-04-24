@@ -255,35 +255,27 @@ int wrFileLine (char *file, char *test, int code) {
   }
   close(temp);
   close(fp);
-  int p[2];
-  pipe(p);
+  int done;
+
   if(!fork()) {
-    close(p[0]);
-    dup2(p[1],1);
-    close(p[1]);
-    execlp("mv","mv",".tmp",file,NULL);
-    exit(1);
+    done = execlp("mv","mv",".tmp",file,NULL);
+    exit(done);
   }
   else {
-    close(p[1]);
-    wait(NULL);
-    count = 0;
-    while(read(p[0],&c,1) > 0) {
-      count++;
+    if (WIFEXITED(done)) done = WEXITSTATUS(done);
+    if(done) {
+      write(2,"execlp(mv) failure\n",19);
+      return SYS_FAIL;
     }
-    close(p[0]);
   }
-  if(count) {
-    write(2,"execlp(mv) failure\n",19);
-    return SYS_FAIL;
-  }
+
   return 0;
 }
 
 int refreshFile (char* file, char* temp_file, int addCode, char* tmp) {
 
   int fp = open(file, O_RDONLY);
-  int temp = open(tmp, O_WRONLY | O_CREAT, 00700);
+  int temp = open(tmp, O_WRONLY | O_CREAT | O_TRUNC, 00700);
   int fp2 = open(temp_file, O_RDONLY);
   if(fp2 < 0) return 1;
 
@@ -450,53 +442,26 @@ int saveName (char *buffer, int max, char *file_temp, int addCode) {
   return 0;
 }
 
-int finishFiles(char *file, char *file_temp, char *temp, int addCode, char *tmp) {
+int finishFiles(char *file, char *file_temp, int addCode, char *tmp) {
   char c;
+  int r;
   int fp, done;
   if((fp = open(file_temp, O_WRONLY)) > -1) {
     close(fp);
-    int p[2];
-    pipe(p);
 
     if(!fork()) {
-      close(p[0]);
-      dup2(p[1],1);
-      close(p[1]);
-      execlp("sort","sort","-n",file_temp,NULL);
-      _exit(1);
-    } else {
-      if(!fork()) {
-        fp = open(temp, O_WRONLY | O_CREAT, 00700);
-        close(p[1]);
-        dup2(p[0],0);
-        close(p[0]);
-        while(read(0,&c,1) > 0) {
-          write(fp,&c,1);
-        }
-        close(fp);
-        _exit(1);
-      } else{
-        int son;
-        if(!(son = fork())) {
-          close(p[0]);
-          close(p[1]);
-          done = execlp("mv","mv",temp,file_temp,NULL);
-          exit(done);
-        } else{
-          close(p[0]);
-          close(p[1]);
-          waitpid(son,&done,0);
-          while(wait(NULL) > 0);
+      done = execlp("sort","sort","-n","-o",file_temp,file_temp,NULL);
+      exit(done);
+    } else{
+          wait(&done);
 
           if (WIFEXITED(done)) done = WEXITSTATUS(done);
           if(done) {
             write(2,"execlp(mv) failure\n",19);
             return SYS_FAIL;
           }
-        }
-      }
     }
-    refreshFile(file,file_temp,addCode,tmp);
+    if((r = refreshFile(file,file_temp,addCode,tmp))) return r;
     if(!fork()) {
       done = execlp("rm","rm",file_temp,NULL);
       exit(done);
@@ -564,11 +529,11 @@ int main(int argc, char const *argv[]) {
   close(fp1);
 
   if(!fork()) {
-    finishFiles("strings",".saveName",".saveName_tmp",0,".tmp");
+    finishFiles("strings",".saveName",0,".tmp");
     exit(1);
   } else{
     if(!fork()) {
-      finishFiles("artigos",".savePrice",".savePrice_tmp",1,".tmp1");
+      finishFiles("artigos",".savePrice",1,".tmp1");
     } else {
       while(wait(NULL) > 0);
     }
