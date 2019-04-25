@@ -30,7 +30,7 @@ int numDigits(int n){
 
 char* int2code(int previous) {
   int digits = numDigits(previous);
-  char *code = malloc(FIX_SIZE + 1);
+  char *code = malloc(FIX_SIZE + 2);
   int zeros = FIX_SIZE - digits;
   for (size_t i = 0; i < zeros; i++) {
     code[i] = '0';
@@ -118,8 +118,8 @@ int insert(char *buffer, unsigned int *current, int fp, int fp1) {
 
     char *code = int2code(*current);
     //output terminal
-    write(1,code,FIX_SIZE);
-    write(1,"\n",1);
+    strcat(code,"\n");
+    write(1,code,FIX_SIZE+1);
 
     //artigos code and price
     float price = atof(args[1]);
