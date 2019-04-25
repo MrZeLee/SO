@@ -50,62 +50,25 @@ int spacecount (char string[]){
 
 // function to read last line from the file
 // at any point without reading the entire file
-int maxCode()
-{
+
+unsigned int maxCode() {
     int in = open("artigos", O_RDONLY | O_CREAT, 00700);
     if(in < 0) {
       write(2,"open(\"artigos\") failure\n",24);
-      return SYS_FAIL;
+      return 4294967295;
     }
-    // unsigned long long pos (stores upto 2^64 – 1
-    // chars) assuming that long long int takes 8
-    // bytes
-    unsigned long long pos, pointer, empty;
-    char c;
-    char code[FIX_SIZE + 1];
-    int r = -1;
+
+    unsigned long long empty;
+    unsigned int max = 0;
 
     // Go to End of file
-    if ((empty = lseek(in, 0, SEEK_END)) < 0) {
-      write(2,"lseek() failed\n",15);
-      r = SYS_FAIL;
+    if ((empty = lseek(in, -(sizeof(unsigned int) + sizeof(float)), SEEK_END)) == -1) {
+      return max;
     }
-    else
-    {
-      if (empty) {
-        // pos will contain no. of chars in
-        // input file.
-        pos = FIX_SIZE;
-
-        // search for '\n' characters
-        while (pos)
-        {
-            // Move 'pos' away from end of file.
-            if ((pointer = lseek(in, -pos, SEEK_END)))
-            {
-              if (pointer < FIX_SIZE) {
-                lseek(in,0,SEEK_SET);
-                break;
-              }
-              pos++;
-              if((read(in,&c,1) > 0) && c == '\n' ) {
-                // stop reading when n newlines
-                // is found
-                break;
-              }
-            }
-            else {
-              write(2,"lseek() failed\n",15);
-              r = SYS_FAIL;
-            }
-        }
-        read(in,code,FIX_SIZE);
-        code[FIX_SIZE] = '\0';
-        r = atoi(code);
-      }
-    }
+    //printf("%lld\n", empty);
+    read(in,&max,sizeof(unsigned int));
     close(in);
-    return r;
+    return (max+1);
 }
 
 
@@ -146,51 +109,33 @@ void cRetArg (char **args) {
 }
 
 //usar o fork quando estiver a escrever nos dois ficheiros
-int insert(char *buffer, int *previous, int fp, int fp1) {
+int insert(char *buffer, unsigned int *current, int fp, int fp1) {
+
   int j;
   char **args = retArg(buffer);
+  if(args[0] == NULL || args[1] == NULL || args[2] != NULL) return USER_FAIL;
   if((j = isFloat(args[1]))) return j;
-  float iPrice = atof(args[1]);
 
+    char *code = int2code(*current);
+    //output terminal
+    write(1,code,FIX_SIZE);
+    write(1,"\n",1);
 
-  *previous = *previous + 1;
-  int length;
+    //artigos code and price
+    float price = atof(args[1]);
+    write(fp,current,sizeof(unsigned int));
+    write(fp,&price,sizeof(float));
 
-  while(wait(NULL) > 0);
-
-  if(!fork()) {
-    char *code = int2code(*previous);
-    char price[100];
-    sprintf(price,"%lf", iPrice);
-
-
-    //write into user
-    length = 6 + FIX_SIZE + 2;
-    char output[length];
-    strcpy(output,"code: ");
-    strcat(output,code);
-    strcat(output,"\n");
-    write(1,output,length-1);
-
-    length = FIX_SIZE + 1 + strlen(price) + 2;
-    char total[length];
-    strcpy(total,code);
-    strcat(total," ");
-    strcat(total,price);
-    strcat(total,"\n");
-
-    write(fp,total,length-1);
-    free(code);
-
-    length = strlen(args[0]) + 2;
+    //write in strings
+    int length = strlen(args[0]) + 2;
     char name[length];
     strcpy(name,args[0]);
     strcat(name,"\n");
-
     write(fp1,name,length-1);
-    exit(1);
-  }
+
+  *current = *current + 1;
   cRetArg(args);
+  free(code);
 
   return 0;
 }
@@ -266,7 +211,7 @@ int insert(char *buffer, int *previous, int fp, int fp1) {
   return 0;
 }*/
 
-int refreshFile (char* file, char* temp_file, int addCode, char* tmp) {
+int refreshFile (char* file, char* temp_file, char* tmp) {
 
   int fp = open(file, O_RDONLY);
   int temp = open(tmp, O_WRONLY | O_CREAT | O_TRUNC, 00700);
@@ -290,6 +235,7 @@ int refreshFile (char* file, char* temp_file, int addCode, char* tmp) {
 
       if(check) {
         args = retArg(buffer);
+        if(args[0] == NULL || args[1] == NULL || args[2] != NULL) return USER_FAIL;
         code = atoi(args[0]);
       } else code = -1;
     }
@@ -298,13 +244,7 @@ int refreshFile (char* file, char* temp_file, int addCode, char* tmp) {
       if(count == code) {
         while((check1 = read(fp,&c,1)) > 0 && c != '\n');
         count++;
-        if(addCode) {
-          write(temp,args[0],strlen(args[0]));
-          write(temp," ",1);
-          write(temp,args[1],strlen(args[1]));
-        } else {
-          write(temp,args[1],strlen(args[1]));
-        }
+        write(temp,args[1],strlen(args[1]));
         write(temp,"\n",1);
         break;
       }
@@ -380,63 +320,65 @@ char *str2Code (char* arg, int* max) {
   return code;
 }
 
-/*int newPrice (char *buffer, int max) {
+int newPrice (char *buffer, int fp, int max) {
   char **args = retArg(buffer);
   if(args[0] == NULL || args[1] == NULL || args[2] != NULL) return USER_FAIL;
-  char *code = str2Code(args[0], &max);
-  if (!code) return USER_FAIL;
 
-  code = realloc(code, FIX_SIZE + strlen(args[1]) + 1);
-  code[10] = ':';
+  for (size_t i = 0; i < FIX_SIZE; i++) {
+    if(!isdigit(args[0][i])) {
+      write(2,"Invalid Code\n",13);
+      return USER_FAIL;
+    }
+  }
+  if(args[0][FIX_SIZE] != '\0') return USER_FAIL;
+
+  int code = atoi(args[0]);
 
   int i;
   if((i = isFloat(args[1]))) return i;
   float price = atof(args[1]);
 
-  sprintf((code + 11),"%lf", price);
-
-  i = wrFileLine("artigos",code,max);
+  i = lseek(fp, (code * (sizeof(unsigned int) + sizeof(float))) + sizeof(unsigned int), SEEK_SET);
+  write(fp,&price,sizeof(float));
+  i = lseek(fp, 0, SEEK_END);
 
   cRetArg(args);
-  free(code);
-  return i;
-}*/
+  return 0;
+}
 
-int saveName (char *buffer, int max, char *file_temp, int addCode) {
+int saveName (char *buffer, int max, char *file_temp) {
   char **args = retArg(buffer);
   if(args[0] == NULL || args[1] == NULL || args[2] != NULL) {
     cRetArg(args);
     return USER_FAIL;
   }
 
+  for (size_t i = 0; i < FIX_SIZE; i++) {
+    if(!isdigit(args[0][i])) {
+      write(2,"Invalid Code\n",13);
+      return USER_FAIL;
+    }
+  }
+  if(args[0][FIX_SIZE] != '\0') return USER_FAIL;
+
   int fp = open(file_temp, O_WRONLY | O_APPEND | O_CREAT, 00700);
 
-  char *code = str2Code(args[0], &max);
-  if (!code) return USER_FAIL;
+  int length = FIX_SIZE + strlen(args[1]) + 2;
+  char code[length + 1];
 
-  if(addCode) {
-    int j;
-    if((j = isFloat(args[1]))) return j;
-    float price = atof(args[1]);
-    char strPrice[MAX];
-    sprintf(strPrice,"%lf",price);
-    args[1] = realloc(args[1], strlen(strPrice) + 1);
-    strcpy(args[1],strPrice);
-  }
-
-  code = realloc(code,FIX_SIZE + strlen(args[1]) + 1);
+  strcpy(code,args[0]);
   strcat(code," ");
+  strcat(code,args[1]);
+  strcat(code,"\n");
 
-  write(fp,code,strlen(code));
-  write(fp,args[1],strlen(args[1]));
-  write(fp,"\n",1);
+  write(fp,code,length);
+
   cRetArg(args);
   close(fp);
-  free(code);
   return 0;
 }
 
-int finishFiles(char *file, char *file_temp, int addCode, char *tmp) {
+int finishFiles(char *file, char *file_temp, char *tmp) {
   char c;
   int r;
   int fp, done;
@@ -455,7 +397,7 @@ int finishFiles(char *file, char *file_temp, int addCode, char *tmp) {
             return SYS_FAIL;
           }
     }
-    if((r = refreshFile(file,file_temp,addCode,tmp))) return r;
+    if((r = refreshFile(file,file_temp,tmp))) return r;
     if(!fork()) {
       done = execlp("rm","rm",file_temp,NULL);
       exit(done);
@@ -472,14 +414,15 @@ int finishFiles(char *file, char *file_temp, int addCode, char *tmp) {
 }
 
 int main(int argc, char const *argv[]) {
-  int max = maxCode();
+  unsigned int max = maxCode();
   if(max == -2) return SYS_FAIL;
 
-  int fp = open("artigos", O_WRONLY | O_APPEND);
+  int fp = open("artigos", O_WRONLY);
   if(fp < 0) {
     write(2,"open(\"artigos\") failure\n",25);
     return SYS_FAIL;
   }
+
   int fp1 = open("strings", O_WRONLY | O_APPEND | O_CREAT, 00700);
   if(fp1 < 0) {
     write(2,"open(\"strings\") failure\n",24);
@@ -504,10 +447,10 @@ int main(int argc, char const *argv[]) {
             case 'i': check = insert(buffer + 1,&max,fp,fp1);
                       break;
 //            case 'n': check = newName(buffer + sizeof(char),max);
-            case 'n': check = saveName(buffer + 1,max,".saveName",0);
+            case 'n': check = saveName(buffer + 1,max,".saveName");
                       break;
 //            case 'p': check = newPrice(buffer + sizeof(char),max);
-            case 'p': check = saveName(buffer + 1,max,".savePrice",1);
+            case 'p': check = newPrice(buffer + 1,fp, max);
                       break;
             default: break;
           }
@@ -522,16 +465,7 @@ int main(int argc, char const *argv[]) {
   close(fp);
   close(fp1);
 
-  if(!fork()) {
-    finishFiles("strings",".saveName",0,".tmp");
-    exit(1);
-  } else{
-    if(!fork()) {
-      finishFiles("artigos",".savePrice",1,".tmp1");
-    } else {
-      while(wait(NULL) > 0);
-    }
-  }
+  finishFiles("strings",".saveName",".tmp");
 
   return 0;
 }

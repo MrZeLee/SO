@@ -28,16 +28,10 @@ int main()
    {
       read(client_to_server, buf, BUFSIZ);
 
-      if (strcmp("exit",buf)==0)
-      {
-         printf("Server OFF.\n");
-         break;
-      }
+      if (strcmp("exit",buf)==0) break;
 
       else if (strcmp("",buf)!=0)
       {
-         printf("Received: %s\n", buf);
-         printf("Sending back...\n");
          write(server_to_client,buf,BUFSIZ);
       }
 
