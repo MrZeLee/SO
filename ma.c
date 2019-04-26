@@ -8,12 +8,6 @@
 
 #include "ma.h"
 
-#define FIX_SIZE 10
-#define MAX 1024
-#define READ 0
-#define USER_FAIL 2
-#define SYS_FAIL 3
-#define CLOSE 4
 
 int numDigits(int n){
     if (!n) return 1;

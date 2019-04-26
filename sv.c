@@ -1,54 +1,85 @@
 #include <fcntl.h>
-#include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <string.h>
 
+#include "ma.h"
+
 int main()
 {
-   int client_to_server;
-   char *myfifo = "/tmp/client_to_server_fifo";
+  int client_to_server;
+  int server_to_client;
+  int clients;
+  int rets;
 
-   int server_to_client;
-   char *myfifo2 = "/tmp/server_to_client_fifo";
+  char *my = "/tmp/servers";
+  mkfifo(my, 0666);
+  clients = open(my,O_RDONLY | O_CREAT, 0666);
 
-   char buf[BUFSIZ];
+  char *ret = "/tmp/clients";
+  mkfifo(ret, 0666);
+  rets = open(ret, O_WRONLY | O_CREAT, 0666);
 
-   /* create the FIFO (named pipe) */
-   mkfifo(myfifo, 0666);
-   mkfifo(myfifo2, 0666);
+  int i = 0, check;
+  char buf[50];
+  char buf1[50];
+  int length;
+  char c;
 
-   /* open, read, and display the message from the FIFO */
-   client_to_server = open(myfifo, O_RDONLY);
-   server_to_client = open(myfifo2, O_WRONLY);
+  while(1) {
+    check = 0;
+    check = read(clients, &i, sizeof(int));
+    printf("%d\n", check);
 
-   printf("Server ON.\n");
+    if(check) {
+      printf("%d\n", i);
 
-   while (1)
-   {
-      read(client_to_server, buf, BUFSIZ);
+      if(!fork()) {
+        sprintf(buf,"/tmp/client_to_server_fifo%d",i);
+        mkfifo(buf, 0666);
+        sprintf(buf1,"/tmp/server_to_client_fifo%d",i);
+        mkfifo(buf1, 0666);
 
-      if (strcmp("exit",buf)==0)
-      {
-         printf("Server OFF.\n");
-         break;
+        client_to_server = open(buf, O_RDONLY | O_CREAT, 0666);
+        server_to_client = open(buf1, O_WRONLY | O_CREAT, 0666);
+
+        write(rets,&i,sizeof(int));
+
+
+
+        while (1)
+        {
+          i = 0;
+          while((length = read(client_to_server, &c, 1)) && c != '\n') {
+            buf[i++] = c;
+          }
+          printf("%d\n", length);
+          if(length) {
+            printf("%s\n", buf);
+            write(server_to_client,buf,i);
+          } else {
+            break;
+          }
+           /* clean buf from any data */
+           memset(buf, 0, sizeof(buf));
+        }
+
+        close(client_to_server);
+        close(server_to_client);
+
+        unlink(buf);
+        unlink(buf1);
+
+        exit(1);
       }
+      wait(NULL);
+    }
+  }
 
-      else if (strcmp("",buf)!=0)
-      {
-         printf("Received: %s\n", buf);
-         printf("Sending back...\n");
-         write(server_to_client,buf,BUFSIZ);
-      }
+  close(rets);
+  close(clients);
+  unlink(my);
+  unlink(ret);
 
-      /* clean buf from any data */
-      memset(buf, 0, sizeof(buf));
-   }
-
-   close(client_to_server);
-   close(server_to_client);
-
-   unlink(myfifo);
-   unlink(myfifo2);
    return 0;
 }
