@@ -25,7 +25,7 @@ unsigned int maxCode();
 int isFloat(char *price);
 
 //
-char** retArg (char *buffer);
+char **retArg (char *buffer);
 
 //
 void cRetArg (char **args);

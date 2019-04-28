@@ -7,6 +7,7 @@
 #include <ctype.h> //isdigit
 
 #include "ma.h"
+#include "extra.h"
 
 
 int numDigits(int n){
@@ -31,15 +32,6 @@ char* int2code(int previous) {
   }
   sprintf(code + zeros,"%d", previous);
   return code;
-}
-
-int spacecount (char string[]){
-	int i, count = 0;
-
-	for (i = 0; string[i] != '\0'; i++)
-		if (string[i] == ' ') count++;
-
-	return count;
 }
 
 // function to read last line from the file
@@ -79,28 +71,6 @@ int isFloat(char *price) {
   return 0;
 }
 
-char** retArg (char *buffer) {
-  int i = 0;
-  int space = spacecount(buffer);
-  char *temp = strtok(buffer," ");
-  char **arg = malloc(sizeof(int) * space);
-  while (temp){
-					arg[i] = malloc(strlen(temp) + 1);
-          strcpy(arg[i++],temp);
-					temp = strtok(NULL," ");
-			}
-  arg[i] = NULL;
-  return arg;
-}
-
-void cRetArg (char **args) {
-  if (args != NULL) {
-    for (size_t i = 0; args[i] != NULL; i++) {
-      free(args[i]);
-    }
-    free(args);
-  }
-}
 
 //usar o fork quando estiver a escrever nos dois ficheiros
 int insert(char *buffer, unsigned int *current, int fp, int fp1) {

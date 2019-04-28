@@ -8,12 +8,7 @@
 int main()
 {
    pid_t pid = getpid();
-   printf("%d\n", pid);
    int clients = open("/tmp/servers", O_WRONLY);
-
-   int rets = open("/tmp/clients", O_RDONLY);
-   read(rets,&pid,sizeof(int));
-   printf("%d\n", pid);
 
    int client_to_server;
    char myfifo[50];
@@ -30,11 +25,9 @@ int main()
    write(clients,&pid,sizeof(pid_t));
 
    close(clients);
-
-   client_to_server = open(myfifo, O_WRONLY);
-   printf("%d\n", client_to_server);
+   sleep(5);
    server_to_client = open(myfifo2, O_RDONLY);
-
+   client_to_server = open(myfifo, O_WRONLY);
 
    while(1) {
      i = 0;
@@ -42,14 +35,17 @@ int main()
      while((length = read(0,&c,1)) && c != '\n') {
        str[i++] = c;
      }
-     printf("%d\n", length);
-     printf("%d\n", i);
-     str[i] = '\n';
      if(length) {
        if(i) {
-         write(client_to_server, str, i+1);
-         printf("test\n" );
+
+         write(client_to_server, &i, sizeof(int));
+         write(client_to_server, str, i);
+
+         length = read(server_to_client,&i,sizeof(int));
          read(server_to_client,str,i);
+
+         write(1,str,i);
+
        }
      } else {
        break;
