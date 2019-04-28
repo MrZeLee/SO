@@ -5,6 +5,8 @@
 
 #include "extra.h"
 
+int global = 1;
+
 int limpaEspacos (char texto[]) {
     int r=0, i;
     for(i = 0; texto[i] != '\0'; i++)
@@ -25,19 +27,7 @@ int main()
 {
   int artigos = open("artigos",O_RDONLY);
   if(artigos < 0) return -1;
-  long int artigos_size = lseek(artigos,0,SEEK_END);
-  artigos_size = artigos_size>>3;
-
   int stock = open("stock",O_RDWR | O_CREAT, 0666);
-  long int stock_size = lseek(stock,0,SEEK_END);
-  stock_size = stock_size>>2;
-  int left = artigos_size - stock_size;
-  int zero = 0;
-  printf("%d\n", left);
-  while(left) {
-    write(stock,&zero,sizeof(int));
-    left--;
-  }
 
   int client_to_server;
   int server_to_client;
@@ -53,17 +43,47 @@ int main()
   char buf1[MAX];
   int length;
   char c;
+  int numberOfClients = 0;
+  int pid;
+  int pidClients[MAX];
 
   while(1) {
+
+    long int artigos_size = lseek(artigos,0,SEEK_END);
+    artigos_size = artigos_size>>3;
+
+    long int stock_size = lseek(stock,0,SEEK_END);
+    stock_size = stock_size>>2;
+    int left = artigos_size - stock_size;
+    int zero = 0;
+    while(left) {
+      write(stock,&zero,sizeof(int));
+      left--;
+    }
+    for (size_t h = 0; h < numberOfClients && pidClients[h] != 0; h++) {
+      sprintf(buf,"/tmp/%ds",pidClients[h]);
+      sprintf(buf1,"/tmp/%dr",pidClients[h]);
+
+
+    }
+
     check = 0;
-    check = read(clients, &i, sizeof(int));
+    if(numberOfClients != MAX) check = read(clients, &pid, sizeof(int));
 
     if(check) {
-      sprintf(buf,"/tmp/client_to_server_fifo%d",i);
-      sprintf(buf1,"/tmp/server_to_client_fifo%d",i);
+      sprintf(buf,"/tmp/%ds",pid);
+      sprintf(buf1,"/tmp/%dr",pid);
       mkfifo(buf, 0666);
       mkfifo(buf1, 0666);
 
+      pidClients[numberOfClients] = pid;
+
+      numberOfClients++;
+
+      sprintf(buf,"/tmp/client_to_server_fifo%d",pid);
+      sprintf(buf1,"/tmp/server_to_client_fifo%d",pid);
+      mkfifo(buf, 0666);
+      mkfifo(buf1, 0666);
 
       if(!fork()) {
         server_to_client = open(buf1, O_WRONLY);
@@ -106,6 +126,8 @@ int main()
               } else check = 0;
 
               if(check) {
+                while(!global);
+                global = 0;
                 int code = atoi(args[0]);
                 if(args[0] != NULL) {
                   if(args[1] == NULL) {
@@ -154,6 +176,7 @@ int main()
                   write(server_to_client,&i,sizeof(int));
                   write(server_to_client,"Invalid Input\n",i);
                 }
+                global = 1;
               } else check = 1;
             } else {
               if(length) {
@@ -179,8 +202,11 @@ int main()
         unlink(buf);
         unlink(buf1);
 
+
         exit(1);
       }
+
+
     }
   }
 
