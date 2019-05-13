@@ -9,30 +9,10 @@
 #include "ma.h"
 #include "extra.h"
 
+int isZero;
 
-int numDigits(int n){
-    if (!n) return 1;
 
-    int count = 0;
 
-    while(n != 0)
-    {
-        n /= 10;
-        ++count;
-    }
-    return count;
-}
-
-char* int2code(int previous) {
-  int digits = numDigits(previous);
-  char *code = malloc(FIX_SIZE + 2);
-  int zeros = FIX_SIZE - digits;
-  for (size_t i = 0; i < zeros; i++) {
-    code[i] = '0';
-  }
-  sprintf(code + zeros,"%d", previous);
-  return code;
-}
 
 // function to read last line from the file
 // at any point without reading the entire file
@@ -40,7 +20,7 @@ char* int2code(int previous) {
 unsigned int maxCode() {
     int in = open("artigos", O_RDONLY | O_CREAT, 00700);
     if(in < 0) {
-      write(2,"open(\"artigos\") failure\n",24);
+      perror("open");
       return 4294967295;
     }
 
@@ -48,12 +28,14 @@ unsigned int maxCode() {
     unsigned int max = 0;
 
     // Go to End of file
-    if ((empty = lseek(in, -(sizeof(unsigned int) + sizeof(float)), SEEK_END)) == -1) {
+    if ((empty = lseek(in, -(sizeof(unsigned int) + sizeof(double)), SEEK_END)) == -1) {
       return max;
     }
     //printf("%lld\n", empty);
-    read(in,&max,sizeof(unsigned int));
-    close(in);
+    isZero = read(in,&max,sizeof(unsigned int));
+    if(isZero < 0) perror("read");
+    isZero = close(in);
+    if(isZero < 0) perror("close");
     return (max+1);
 }
 
@@ -83,19 +65,23 @@ int insert(char *buffer, unsigned int *current, int fp, int fp1) {
     char *code = int2code(*current);
     //output terminal
     strcat(code,"\n");
-    write(1,code,FIX_SIZE+1);
+    isZero = write(1,code,FIX_SIZE+1);
+    if(isZero < 0) perror("write");
 
     //artigos code and price
-    float price = atof(args[1]);
-    write(fp,current,sizeof(unsigned int));
-    write(fp,&price,sizeof(float));
+    double price = atof(args[1]);
+    isZero = write(fp,current,sizeof(unsigned int));
+    if(isZero < 0) perror("write");
+    isZero = write(fp,&price,sizeof(double));
+    if(isZero < 0) perror("write");
 
     //write in strings
     int length = strlen(args[0]) + 2;
     char name[length];
     strcpy(name,args[0]);
     strcat(name,"\n");
-    write(fp1,name,length-1);
+    isZero = write(fp1,name,length-1);
+    if(isZero < 0) perror("write");
 
   *current = *current + 1;
   cRetArg(args);
@@ -137,7 +123,7 @@ int insert(char *buffer, unsigned int *current, int fp, int fp1) {
   }
   int fp = open(file, O_RDONLY | O_CREAT, 00700);
   if(fp < 0) {
-    close(temp);
+    isZero = close(temp);
     write(2,"open() failure\n",24);
     return SYS_FAIL;
   }
@@ -156,8 +142,8 @@ int insert(char *buffer, unsigned int *current, int fp, int fp1) {
       write(temp,&c,1);
     }
   }
-  close(temp);
-  close(fp);
+  isZero = close(temp);
+  isZero = close(fp);
   int done;
 
   if(!fork()) {
@@ -195,6 +181,7 @@ int refreshFile (char* file, char* temp_file, char* tmp) {
       while((check = read(fp2,&c,1)) > 0 && c != '\n') {
         buffer[i++] = c;
       }
+      if(check < 0) perror("read");
       buffer[i] = '\0';
 
       if(check) {
@@ -208,36 +195,41 @@ int refreshFile (char* file, char* temp_file, char* tmp) {
       if(count == code) {
         while((check1 = read(fp,&c,1)) > 0 && c != '\n');
         count++;
-        write(temp,args[1],strlen(args[1]));
-        write(temp,"\n",1);
+        isZero = write(temp,args[1],strlen(args[1]));
+        if(isZero < 0) perror("write");
+        isZero = write(temp,"\n",1);
+        if(isZero < 0) perror("write");
         break;
       }
       else {
         if(c == '\n') count++;
-        write(temp,&c,1);
+        isZero = write(temp,&c,1);
+        if(isZero < 0) perror("write");
       }
     }
+    if(check < 0) perror("read");
     if(check) {
       cRetArg(args);
     }
   }
 
-  close(fp);
-  close(temp);
-  close(fp2);
+  isZero = close(fp);
+  if(isZero < 0) perror("close");
+  isZero = close(temp);
+  if(isZero < 0) perror("close");
+  isZero = close(fp2);
+  if(isZero < 0) perror("close");
   int done;
 
   if(!fork()) {
     done = execlp("mv","mv",tmp,file,NULL);
+    if (done < 0) perror("execlp");
     exit(done);
   }
   else {
     wait(&done);
     if (WIFEXITED(done)) done = WEXITSTATUS(done);
-    if(done) {
-      write(2,"execlp(mv) failure\n",19);
-      return SYS_FAIL;
-    }
+    if(done) return SYS_FAIL;
   }
   return 0;
 }
@@ -265,7 +257,7 @@ int refreshFile (char* file, char* temp_file, char* tmp) {
   return i;
 }*/
 
-char *str2Code (char* arg, int* max) {
+/*char *str2Code (char* arg, int* max) {
   int i = 0;
   char t;
   while((t = arg[i]) != '\0') {
@@ -282,7 +274,7 @@ char *str2Code (char* arg, int* max) {
   char *code = int2code(cod);
 
   return code;
-}
+}*/
 
 int newPrice (char *buffer, int fp, int max) {
   char **args = retArg(buffer);
@@ -290,7 +282,8 @@ int newPrice (char *buffer, int fp, int max) {
 
   for (size_t i = 0; i < FIX_SIZE; i++) {
     if(!isdigit(args[0][i])) {
-      write(2,"Invalid Code\n",13);
+      isZero = write(2,"Invalid Code\n",13);
+      if(isZero < 0) perror("write");
       return USER_FAIL;
     }
   }
@@ -300,10 +293,11 @@ int newPrice (char *buffer, int fp, int max) {
 
   int i;
   if((i = isFloat(args[1]))) return i;
-  float price = atof(args[1]);
+  double price = atof(args[1]);
 
-  i = lseek(fp, (code * (sizeof(unsigned int) + sizeof(float))) + sizeof(unsigned int), SEEK_SET);
-  write(fp,&price,sizeof(float));
+  i = lseek(fp, (code * (sizeof(unsigned int) + sizeof(double))) + sizeof(unsigned int), SEEK_SET);
+  isZero = write(fp,&price,sizeof(double));
+  if(isZero < 0) perror("write");
   i = lseek(fp, 0, SEEK_END);
 
   cRetArg(args);
@@ -319,7 +313,8 @@ int saveName (char *buffer, int max, char *file_temp) {
 
   for (size_t i = 0; i < FIX_SIZE; i++) {
     if(!isdigit(args[0][i])) {
-      write(2,"Invalid Code\n",13);
+      isZero = write(2,"Invalid Code\n",13);
+      if(isZero < 0) perror("write");
       return USER_FAIL;
     }
   }
@@ -335,43 +330,41 @@ int saveName (char *buffer, int max, char *file_temp) {
   strcat(code,args[1]);
   strcat(code,"\n");
 
-  write(fp,code,length);
+  isZero = write(fp,code,length);
+  if(isZero < 0) perror("write");
 
   cRetArg(args);
-  close(fp);
+  isZero = close(fp);
+  if(isZero < 0) perror("close");
   return 0;
 }
 
 int finishFiles(char *file, char *file_temp, char *tmp) {
-  char c;
   int r;
   int fp, done;
   if((fp = open(file_temp, O_WRONLY)) > -1) {
-    close(fp);
+    isZero = close(fp);
+    if(isZero < 0) perror("close");
 
     if(!fork()) {
       done = execlp("sort","sort","-n","-o",file_temp,file_temp,NULL);
+      if(done < 0) perror("execlp");
       exit(done);
     } else{
           wait(&done);
 
           if (WIFEXITED(done)) done = WEXITSTATUS(done);
-          if(done) {
-            write(2,"execlp(mv) failure\n",19);
-            return SYS_FAIL;
-          }
+          if(done) return SYS_FAIL;
     }
     if((r = refreshFile(file,file_temp,tmp))) return r;
     if(!fork()) {
       done = execlp("rm","rm",file_temp,NULL);
+      if(done < 0) perror("execlp");
       exit(done);
     } else{
       wait(&done);
       if (WIFEXITED(done)) done = WEXITSTATUS(done);
-      if(done) {
-        write(2,"execlp(mv) failure\n",19);
-        return SYS_FAIL;
-      }
+      if(done) return SYS_FAIL;
     }
   }
   return 0;
@@ -383,13 +376,13 @@ int main(int argc, char const *argv[]) {
 
   int fp = open("artigos", O_WRONLY);
   if(fp < 0) {
-    write(2,"open(\"artigos\") failure\n",25);
+    perror("open");
     return SYS_FAIL;
   }
 
   int fp1 = open("strings", O_WRONLY | O_APPEND | O_CREAT, 00700);
   if(fp1 < 0) {
-    write(2,"open(\"strings\") failure\n",24);
+    perror("open");
     return SYS_FAIL;
   }
 
@@ -401,7 +394,7 @@ int main(int argc, char const *argv[]) {
   c = -1;
   i = 0;
   buffer[0] = '\0';
-  while ((read(0,&c,1) > 0)) {
+  while ((isZero = read(0,&c,1)) > 0) {
     if(c == '\n') {
       check = USER_FAIL;
       buffer[i] = '\0';
@@ -419,15 +412,21 @@ int main(int argc, char const *argv[]) {
             default: break;
           }
         }
-      if(check == USER_FAIL) write(1,"Write valide option.\n",21);
+      if(check == USER_FAIL) {
+        isZero = write(1,"Write valide option.\n",21);
+        if(isZero < 0) perror("write");
+      }
       if(check == SYS_FAIL) return 1;
       i = 0;
     }
     else buffer[i++] = c;
   }
+  if(isZero < 0) perror("read");
 
-  close(fp);
-  close(fp1);
+  isZero = close(fp);
+  if(isZero < 0) perror("close");
+  isZero = close(fp1);
+  if(isZero < 0) perror("close");
 
   finishFiles("strings",".saveName",".tmp");
 
