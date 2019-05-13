@@ -12,7 +12,7 @@
 
 
 //Conta o númeor de espaços de array de caracteres
-int spacecount (char string[]);
+//int spacecount (char string[]);
 
 //
 unsigned int maxCode();
@@ -21,10 +21,10 @@ unsigned int maxCode();
 int isFloat(char *price);
 
 //
-char **retArg (char *buffer);
+//char **retArg (char *buffer);
 
 //
-void cRetArg (char **args);
+//void cRetArg (char **args);
 
 //
 int insert(char *buffer, unsigned int *current, int fp, int fp1);
@@ -33,7 +33,7 @@ int insert(char *buffer, unsigned int *current, int fp, int fp1);
 int refreshFile (char* file, char* temp_file, char* tmp);
 
 //
-char *str2Code (char* arg, int* max);
+//char *str2Code (char* arg, int* max);
 
 //
 int newPrice (char *buffer, int fp, int max);

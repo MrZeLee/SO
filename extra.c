@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <ctype.h> //isdigit
 
-#include "extra.h"
+#define FIX_SIZE 10
 
 int numDigits(int n){
     if (!n) return 1;

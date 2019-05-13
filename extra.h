@@ -8,7 +8,7 @@
 int numDigits(int n);
 
 //Transforma um inteiro num array de caracteres com 10 de tamanho
-char* int2code(int previous);
+char *int2code(int previous);
 
 //Conta o númeor de espaços de array de caracteres
 int spacecount (char string[]);

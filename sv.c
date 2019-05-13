@@ -140,7 +140,7 @@ int main()
         time(&current_time);
         struct tm *time1 = localtime(&current_time);
         sprintf(newFile,"%d-%d-%dT%d:%d:%d",time1->tm_year + 1900, time1->tm_mon + 1, time1->tm_mday, time1->tm_hour, time1->tm_min, time1->tm_sec);
-        
+
         mkfifo("/tmp/in1", 0666);
         pid = 1;
         check = write(pidClients[1],&pid,sizeof(int));
@@ -365,13 +365,15 @@ int main()
 
               if(check) {
                 int code = atoi(args[0]);
-                if(args[0] != NULL && code < max) {
+                printf("max -> %d\n", max);
+                if(args[0] != NULL && code < max-1) {
                   if(args[1] == NULL) {
                     lseek(stock,sizeof(int)*code,SEEK_SET);
                     isZero = read(stock,&i,sizeof(int));
                     if(isZero < 0) perror("read");
                     artigos = open("artigos",O_RDONLY);
                     if(artigos < 0){ perror("open"); return -1;}
+                    printf("%d\n", code);
                     lseek(artigos,(sizeof(int) + sizeof(double))*code + sizeof(int),SEEK_SET);
                     price = 10;
                     isZero = read(artigos,&price,sizeof(double));

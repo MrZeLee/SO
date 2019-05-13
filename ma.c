@@ -6,8 +6,8 @@
 #include <stdio.h>
 #include <ctype.h> //isdigit
 
-#include "ma.h"
 #include "extra.h"
+#include "ma.h"
 
 int isZero;
 
@@ -61,7 +61,7 @@ int insert(char *buffer, unsigned int *current, int fp, int fp1) {
   char **args = retArg(buffer);
   if(args[0] == NULL || args[1] == NULL || args[2] != NULL) return USER_FAIL;
   if((j = isFloat(args[1]))) return j;
-
+  //printf("start\n");
     char *code = int2code(*current);
     //output terminal
     strcat(code,"\n");
@@ -86,6 +86,7 @@ int insert(char *buffer, unsigned int *current, int fp, int fp1) {
   *current = *current + 1;
   cRetArg(args);
   free(code);
+  //printf("end\n" );
 
   return 0;
 }
@@ -374,12 +375,6 @@ int main(int argc, char const *argv[]) {
   unsigned int max = maxCode();
   if(max == -2) return SYS_FAIL;
 
-  int fp = open("artigos", O_WRONLY);
-  if(fp < 0) {
-    perror("open");
-    return SYS_FAIL;
-  }
-
   int fp1 = open("strings", O_WRONLY | O_APPEND | O_CREAT, 00700);
   if(fp1 < 0) {
     perror("open");
@@ -399,6 +394,13 @@ int main(int argc, char const *argv[]) {
       check = USER_FAIL;
       buffer[i] = '\0';
 
+      int fp = open("artigos", O_WRONLY | O_APPEND | O_CREAT, 0666);
+      if(fp < 0) {
+        perror("open");
+        return SYS_FAIL;
+      }
+
+
       if(i != 1) {
           switch (buffer[0]) {
             case 'i': check = insert(buffer + 1,&max,fp,fp1);
@@ -412,6 +414,9 @@ int main(int argc, char const *argv[]) {
             default: break;
           }
         }
+        isZero = close(fp);
+        if(isZero < 0) perror("close");
+
       if(check == USER_FAIL) {
         isZero = write(1,"Write valide option.\n",21);
         if(isZero < 0) perror("write");
@@ -423,8 +428,7 @@ int main(int argc, char const *argv[]) {
   }
   if(isZero < 0) perror("read");
 
-  isZero = close(fp);
-  if(isZero < 0) perror("close");
+
   isZero = close(fp1);
   if(isZero < 0) perror("close");
 
