@@ -1,10 +1,8 @@
 #include <unistd.h> /* chamadas ao sistema: defs e decls essenciais */
 #include <fcntl.h> /* O_RDONLY, O_WRONLY, O_CREAT, O_* */
 #include <string.h>
-#include <stdlib.h>
 #include <stdio.h>
-
-#define FIX_SIZE 10
+#include <stdlib.h>
 
 int numDigits(int n){
     if (!n) return 1;
@@ -21,8 +19,8 @@ int numDigits(int n){
 
 char* int2code(int previous) {
   int digits = numDigits(previous);
-  char *code = malloc(FIX_SIZE + 1);
-  int zeros = FIX_SIZE - digits;
+  char *code = malloc(10 + 2);
+  int zeros = 10 - digits;
   for (size_t i = 0; i < zeros; i++) {
     code[i] = '0';
   }
@@ -31,15 +29,21 @@ char* int2code(int previous) {
 }
 
 int main() {
-	int fp = open("test1.txt", O_WRONLY | O_CREAT | O_APPEND, 00700);
+	int fp = open("test2.txt", O_WRONLY | O_CREAT | O_APPEND, 00700);
 	char buffer[1024];
+	char* code;
+	code = int2code(0);
 	for(int i = 0; i < 1000000; i++){
-		char *code = int2code(i);
-		sprintf(buffer,"n %s beatriz%d\n", code, i);
+		sprintf(buffer,"%s\n", code);
 		write(fp,buffer,strlen(buffer));
-		sprintf(buffer,"p %s %d\n", code, 1000000-i);
-		write(fp,buffer,strlen(buffer));
-		free(code);
 	}
+	close(fp);
+	fp = open("test1.txt", O_WRONLY | O_CREAT | O_APPEND, 00700);
+	for(int i = 0; i < 1000000; i++){
+		sprintf(buffer,"%s %d\n", code ,-1);
+		write(fp,buffer,strlen(buffer));
+	}
+
+	close(fp);
 	return 0;
 }
