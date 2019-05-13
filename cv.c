@@ -11,7 +11,6 @@ int isZero;
 int main()
 {
    pid_t pid = getpid();
-   printf("%d\n", pid);
    int clients = open("/tmp/servers", O_WRONLY);
    if(clients < 0) {perror("open"); return -1;}
 
@@ -50,24 +49,18 @@ int main()
          isZero = write(client_to_server, str, i);
          if(isZero < 0) perror("write");
 
-         printf("before receiving\n");
          while ((length = read(server_to_client,&i,sizeof(int))) == 0);
-         printf("after receiving -> %d\n", length);
          if(length < 0) perror("read");
-         printf("before receiving1\n");
          isZero = read(server_to_client,str,i);
          str[i] = '\0';
-         printf("after receiving1 -> %d\n", isZero);
          if(isZero < 0) perror("read");
          if(!strcmp("exit",str)) break;
 
-         printf("%s<-\n", str);
          isZero = write(1,str,i);
          if(isZero < 0) perror("write");
 
        }
      } else {
-       printf("%d\n", length);
        break;
      }
    }

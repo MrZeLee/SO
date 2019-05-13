@@ -29,7 +29,6 @@ int limpaEspacos (char texto[]) {
 
 int main()
 {
-  printf("%d\n", sizeof(double));
   int artigos;
   int stock = open("stock",O_RDWR | O_CREAT, 0666);
   if(stock < 0){ perror("open"); return -1;}
@@ -83,7 +82,6 @@ int main()
           }
           isZero = close(artigos);
           if(isZero < 0) perror("close");
-          printf("brokehere\n");
 
           check = 0;
           i = 0;
@@ -93,21 +91,16 @@ int main()
                 sprintf(buf,"/tmp/in%d",check);
                 in = open(buf, O_WRONLY);
                 check = (int) artigos_size;
-                printf("inall -> %d\n", in);
                 i = write(in,&check,sizeof(int));
                 if(i < 0) perror("write");
                 isZero = close(in);
                 if(isZero < 0) perror("close");
-                printf("i -> %d\n", i);
 
                 exits = open("/tmp/exits", O_RDONLY);
                 if(exits < 0) perror("open");
                 while((i = read(exits,&check,sizeof(int))) == 0);
                 isZero = close(exits);
                 if(isZero < 0) perror("close");
-                printf("i1 -> %d\n", i);
-                //if(check == 999)
-                printf("codigoall -> %d\n", check);
             }
         }
         exit(1);
@@ -145,20 +138,13 @@ int main()
         pid = 1;
         check = write(pidClients[1],&pid,sizeof(int));
         if(check < 0) perror("write");
-        printf("pid -> %d\n", pid);
-        printf("check -> %d\n", check);
         check = 1;
         sprintf(buf1,"/tmp/in%d",pid);
-        printf("%s\n", buf1);
-        printf("before opening\n");
         in = open(buf1, O_RDONLY);
-        printf("after opening -> %d\n", in);
         if(in < 0) perror("open");
-        printf("in -> %d\n", in);
         i = 0;
         isZero = read(in,&i,sizeof(int));
         if(isZero < 0) perror("read");
-        printf("readed -> %d\n", i);
         isZero = close(in);
         if(isZero < 0) perror("close");
 
@@ -173,7 +159,6 @@ int main()
         quantidade_size = quantidade_size>>2;
         int left = stock_size - quantidade_size;
         int zero = 0;
-        printf("Left -> %d\n", left);
         while(left) {
           isZero = write(quantidade,&zero,sizeof(int));
           if(isZero < 0) perror("write");
@@ -186,7 +171,6 @@ int main()
         long int precos_size = lseek(precos,0,SEEK_END);
         precos_size = precos_size/(sizeof(double));
         left = stock_size - precos_size;
-        printf("Left -> %d\n", left);
         double zero1 = 0;
         while(left) {
           isZero = write(precos,&zero1,sizeof(double));
@@ -199,16 +183,12 @@ int main()
         double preco1, preco2;
         lseek(vendas,0,SEEK_SET);
         while(1) {
-          printf("before read\n");
           if(!(read(vendas,&codigo,sizeof(int)))) break;
-          printf("after read\n" );
-          printf("codigo -> %d\n", codigo);
           lseek(quantidade,((sizeof(int))*codigo),SEEK_SET);
           lseek(precos,((sizeof(double))*codigo),SEEK_SET);
 
           read(vendas,&quantidade2,sizeof(int));
           read(quantidade,&quantidade1,sizeof(int));
-          printf("QUANTIDADE -> %d\n", quantidade1);
           quantidade1 += quantidade2;
           lseek(quantidade,((sizeof(int))*(-1)),SEEK_CUR);
           write(quantidade,&quantidade1,sizeof(int));
@@ -216,11 +196,9 @@ int main()
           read(vendas,&preco2,sizeof(double));
           read(precos,&preco1,sizeof(double));
           preco1 += preco2;
-          printf("Preco -> %f\n", preco1);
           lseek(precos,((sizeof(double))*(-1)),SEEK_CUR);
           write(precos,&preco1,sizeof(double));
         }
-        printf("exited?\n");
 
         close(vendas);
         close(precos);
@@ -264,7 +242,6 @@ int main()
         check = 200;
         exits = open("/tmp/exits", O_WRONLY);
         isZero = write(exits,&check,4);
-        printf("exits write -> %d\n", isZero);
         if(isZero < 0) perror("write");
         isZero = close(exits);
         if(isZero < 0) perror("close");
@@ -285,12 +262,8 @@ int main()
 
       if(!fork()) {
         int max;
-        printf("enter\n");
         server_to_client = open(buf, O_WRONLY);
         if(server_to_client < 0) perror("open");
-        printf("enter %d\n", server_to_client);
-        //printf("exits -> %d\n", exits);
-        printf("pid -> %d\n", pid);
         client_to_server = open(buf1, O_RDONLY);
         if(client_to_server < 0) perror("open");
 
@@ -302,30 +275,21 @@ int main()
           check = 1;
           length = 0;
           i = 1;
-          printf("enter\n");
           isZero = read(client_to_server,&length,sizeof(int));
           if(isZero < 0) perror("read");
           isZero = read(client_to_server, buf, length);
           if(isZero < 0) perror("read");
           buf[length] = '\0';
-          printf("readed -> %s\n", buf);
 
           check = write(pidClients[1],&pid,sizeof(int));
           if(check < 0) perror("write");
-          printf("pid -> %d\n", pid);
-          printf("check -> %d\n", check);
           check = 1;
           sprintf(buf1,"/tmp/in%d",pid);
-          printf("%s\n", buf1);
-          printf("before opening\n");
           in = open(buf1, O_RDONLY);
-          printf("after opening -> %d\n", in);
           if(in < 0) perror("open");
-          printf("in -> %d\n", in);
           i = 0;
           isZero = read(in,&max,sizeof(int));
           if(isZero < 0) perror("read");
-          printf("readed -> %d\n", max);
           isZero = close(in);
           if(isZero < 0) perror("close");
 
@@ -365,7 +329,6 @@ int main()
 
               if(check) {
                 int code = atoi(args[0]);
-                printf("max -> %d\n", max);
                 if(args[0] != NULL && code < max-1) {
                   if(args[1] == NULL) {
                     lseek(stock,sizeof(int)*code,SEEK_SET);
@@ -373,7 +336,6 @@ int main()
                     if(isZero < 0) perror("read");
                     artigos = open("artigos",O_RDONLY);
                     if(artigos < 0){ perror("open"); return -1;}
-                    printf("%d\n", code);
                     lseek(artigos,(sizeof(int) + sizeof(double))*code + sizeof(int),SEEK_SET);
                     price = 10;
                     isZero = read(artigos,&price,sizeof(double));
@@ -410,13 +372,10 @@ int main()
                       lseek(stock,sizeof(int)*code,SEEK_SET);
                       isZero = read(stock,&i,sizeof(int));
                       if(isZero < 0) perror("read");
-                      printf("I -> %d\n", i);
                       i += change;
-                      printf("change -> %d\nnew -> %d\n", change,i);
                       if(i < 0) {
                         change -= i;
                         i = 0;
-                        printf("ERROR\n");
                       }
                       if(signal == -1 && change != 0) {
                         change = -change;
@@ -488,7 +447,6 @@ int main()
           check = 200;
           exits = open("/tmp/exits", O_WRONLY);
           isZero = write(exits,&check,4);
-          printf("exits write -> %d\n", isZero);
           if(isZero < 0) perror("write");
           isZero = close(exits);
           if(isZero < 0) perror("close");
@@ -499,7 +457,6 @@ int main()
         if(isZero < 0) perror("write");
         isZero = close(exits);
         if(isZero < 0) perror("close");
-        printf("exit\n");
 
 
         isZero = close(client_to_server);
