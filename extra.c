@@ -6,7 +6,33 @@
 #include <stdio.h>
 #include <ctype.h> //isdigit
 
+#include "extra.h"
 
+int numDigits(int n){
+    if (!n) return 1;
+
+    int count = 0;
+
+    while(n != 0)
+    {
+        n /= 10;
+        ++count;
+    }
+    return count;
+}
+
+char* int2code(int previous) {
+  int digits = numDigits(previous);
+  char *code = malloc(FIX_SIZE + 2);
+  int zeros = FIX_SIZE - digits;
+
+  for (size_t i = 0; i < zeros; i++)
+  {
+    code[i] = '0';
+  }
+  sprintf(code + zeros,"%d", previous);
+  return code;
+}
 
 int spacecount (char string[]){
 	int i, count = 1;

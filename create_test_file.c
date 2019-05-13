@@ -29,12 +29,12 @@ char* int2code(int previous) {
 }
 
 int main() {
-	int fp = open("test.txt", O_WRONLY | O_CREAT | O_APPEND, 00700);
+	int fp = open("test2.txt", O_WRONLY | O_CREAT | O_APPEND, 00700);
 	char buffer[1024];
 	char* code;
-	code = int2code(5000);
+	code = int2code(0);
 	for(int i = 0; i < 1000000; i++){
-		sprintf(buffer,"%s %d\n", code ,10);
+		sprintf(buffer,"%s\n", code);
 		write(fp,buffer,strlen(buffer));
 	}
 	close(fp);
