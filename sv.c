@@ -47,6 +47,16 @@ int main()
   int pid;
   int pidClients[MAX];
 
+  int used[MAX];
+  int rec[MAX];
+  int send[MAX];
+  int nUsed;
+  for (size_t l = 0; l < MAX; l++) {
+    used[l] = 0;
+    rec[l] = 0;
+    send[l] = 0;
+  }
+
   while(1) {
 
     long int artigos_size = lseek(artigos,0,SEEK_END);
@@ -64,7 +74,7 @@ int main()
       sprintf(buf,"/tmp/%ds",pidClients[h]);
       sprintf(buf1,"/tmp/%dr",pidClients[h]);
 
-
+      open(buf)
     }
 
     check = 0;
